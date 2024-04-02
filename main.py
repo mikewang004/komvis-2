@@ -1,10 +1,14 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 from scipy.ndimage import generate_binary_structure, convolve
+import scipy.constants as spc
 
+kb = spc.Boltzmann
 N = 3 #size of lattice square given by N x N 
 J = 1 # coupling constant 
 seed = 12
+T = 1
+
 
 def flip_spin(x):
     """Changes +1 spin to -1 and if spin = -1 to +1"""
@@ -15,6 +19,10 @@ def flip_spin(x):
     else:
         raise Expection("Input has to be +1 or -1.")
 
+def metro_hastings_probability(T, energy):
+    """Returns probability scaling with exp(-beta *H(x))"""
+    beta = 1 / (T)
+    return (np.exp(- beta * energy))
 
 class Lattice():
     def __init__(self, N, J, seed = None):
@@ -26,7 +34,7 @@ class Lattice():
             self.rng = np.random.default_rng(seed)
 
         self.generate_spins()
-        self.energy = self.get_energy()
+        self.energy = self.get_energy(self.lattice)
         return 
 
 
@@ -35,7 +43,7 @@ class Lattice():
         self.lattice = self.rng.integers(low = 0, high = 2, size = (N, N))*2 -1
 
 
-    def get_energy(self):
+    def get_energy(self, lattice):
         """Calculates the energy according to E = -J nearest-neighbours-sum s_i*s_j - H sum_i s_i"""
         #TODO double verify if it works; it should work now
         # First shift to the four nearest neighbours, calculate product and then sum the whole thing 
@@ -44,8 +52,8 @@ class Lattice():
         for i in range(0, 2):
             for j in range(0, 2):
                 # Shift array 
-                lattice_shift = np.roll(self.lattice, 2*j - 1, axis = i)
-                lattice_product[k, :] = lattice_shift * self.lattice
+                lattice_shift = np.roll(lattice, 2*j - 1, axis = i)
+                lattice_product[k, :] = lattice_shift * lattice
                 k = k + 1
         energy = -J * np.sum(lattice_product)
         return energy
@@ -69,9 +77,12 @@ class Simulation():
 
     def run_simulation(self):
         self.modify_system()
-        self.system.new_energy = self.system.get_energy()
+        self.system.new_energy = self.system.get_energy(self.system.new_lattice)
         print(self.system.energy)
         print(self.system.new_energy)
+        print(metro_hastings_probability(T, self.system.energy))
+        print(metro_hastings_probability(T, self.system.new_energy))
+        print(metro_hastings_probability(T, self.system.new_energy)/metro_hastings_probability(T, self.system.energy)   )
         if self.system.new_energy <= self.system.energy:
             self.system.new_lattice = self.system.lattice
             self.system.energy = self.system.new_energy

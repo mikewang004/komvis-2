@@ -4,10 +4,10 @@ from scipy.ndimage import generate_binary_structure, convolve
 import scipy.constants as spc
 
 kb = spc.Boltzmann
-N = 3 #size of lattice square given by N x N 
+N = 50 #size of lattice square given by N x N 
 J = 1 # coupling constant 
 seed = 12
-T = 1
+T = 3
 
 
 def flip_spin(x):
@@ -19,15 +19,12 @@ def flip_spin(x):
     else:
         raise Expection("Input has to be +1 or -1.")
 
-def metro_hastings_probability(T, energy):
-    """Returns probability scaling with exp(-beta *H(x))"""
-    beta = 1 / (T)
-    return (np.exp(- beta * energy))
 
 class Lattice():
-    def __init__(self, N, J, seed = None):
+    def __init__(self, N, J, T, seed = None):
         self.N = N
         self.J = J
+        self.T = T
         if seed is None:
             self.rng = np.random.default_rng()
         else:
@@ -58,10 +55,17 @@ class Lattice():
         energy = -J * np.sum(lattice_product)
         return energy
 
+    def get_total_magnetisation(self, lattice):
+        """Calculates total magnetisation according to M = sum_i s_i"""
+        return np.sum(lattice)
+
+
+
 class Simulation():
-    def __init__(self, system):
+    def __init__(self, system, n_timesteps):
         self.system = system
-        self.run_simulation()
+        self.n_timesteps = n_timesteps
+
 
     def modify_system(self):
         """Modifies the system by one spin"""
@@ -75,19 +79,21 @@ class Simulation():
         self.system.new_lattice[index[0], index[1]] = new_value
         return 0;
 
-    def run_simulation(self):
+    def run_simulation_one_step(self):
         self.modify_system()
         self.system.new_energy = self.system.get_energy(self.system.new_lattice)
-        print(self.system.energy)
-        print(self.system.new_energy)
-        print(metro_hastings_probability(T, self.system.energy))
-        print(metro_hastings_probability(T, self.system.new_energy))
-        print(metro_hastings_probability(T, self.system.new_energy)/metro_hastings_probability(T, self.system.energy)   )
-        if self.system.new_energy <= self.system.energy:
-            self.system.new_lattice = self.system.lattice
+        delta_energy = self.system.new_energy - self.system.energy
+        if delta_energy <=0 or np.exp((-1/self.system.T) * delta_energy) > np.random.default_rng().random():
+            #TODO verify if correct
+            self.system.lattice = self.system.new_lattice
             self.system.energy = self.system.new_energy
-        else:
-            pass
+
+    def run_simulation(self):
+        magnetisation = np.zeros([self.n_timesteps])
+        for i in range(0, self.n_timesteps):
+            self.run_simulation_one_step()
+            magnetisation[i] = self.system.get_total_magnetisation(self.system.lattice)
+        return magnetisation
 
 
 
@@ -97,8 +103,14 @@ class Results(object):
 
 
 def main():
-    lattice = Lattice(N, J)
-    simulation = Simulation(lattice)
+    lattice = Lattice(N, J, T)
+    simulation = Simulation(lattice, 100000)
+    magnetisation = simulation.run_simulation()
+    plt.plot(magnetisation/N**2)
+    plt.title("Mean magnetisation")
+    plt.xlabel("time")
+    plt.ylabel("magnetisation")
+    plt.show()
 
 if __name__ == "__main__":
 

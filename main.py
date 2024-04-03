@@ -7,7 +7,7 @@ kb = spc.Boltzmann
 N = 50 #size of lattice square given by N x N 
 J = 1 # coupling constant 
 seed = 12
-T = 3
+T = 4.0
 
 
 def flip_spin(x):
@@ -83,6 +83,7 @@ class Simulation():
         self.modify_system()
         self.system.new_energy = self.system.get_energy(self.system.new_lattice)
         delta_energy = self.system.new_energy - self.system.energy
+        print(np.exp((-1/self.system.T) * delta_energy))
         if delta_energy <=0 or np.exp((-1/self.system.T) * delta_energy) > np.random.default_rng().random():
             #TODO verify if correct
             self.system.lattice = self.system.new_lattice
@@ -104,7 +105,7 @@ class Results(object):
 
 def main():
     lattice = Lattice(N, J, T)
-    simulation = Simulation(lattice, 100000)
+    simulation = Simulation(lattice, 1000)
     magnetisation = simulation.run_simulation()
     plt.plot(magnetisation/N**2)
     plt.title("Mean magnetisation")

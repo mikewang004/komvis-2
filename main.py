@@ -38,7 +38,18 @@ class Lattice():
         self.energy = self.get_energy(self.lattice)
         return 0
 
-    def generate_spins(self, start_temp = inf):
+    def modify_system_one_spin(self):
+        """Modifies the system by one spin"""
+        rng = np.random.default_rng()
+        self.new_lattice = np.copy(self.lattice)
+        index = (rng.integers(low = 0, high = self.N, size = 2))
+        # Get value and change spin
+        value = self.lattice[index[0], index[1]]
+        new_value = flip_spin(value)
+        self.new_lattice[index[0], index[1]] = new_value
+        return index;
+
+    def generate_spins(self, start_temp = "inf"):
         """Takes N input size and generates N x N lattice. ALso assignes +1 (spin-up) or -1 (spin-down) value to it.
             start_temp = "inf" or "zero" """
         self.lattice = self.rng.integers(low = 0, high = 2, size = (N, N))*2 -1
@@ -46,7 +57,7 @@ class Lattice():
 
     def get_energy_single_spin(self, lattice, index):
         """Looks up spin at given index. Index should be a list with two entries."""
-            pass
+            
 
     def get_energy(self, lattice):
         """Calculates the energy according to E = -J nearest-neighbours-sum s_i*s_j - H sum_i s_i"""
@@ -75,20 +86,10 @@ class Simulation():
         self.results = Results()
 
 
-    def modify_system_one_spin(self):
-        """Modifies the system by one spin"""
-        rng = np.random.default_rng()
-        self.system.new_lattice = np.copy(self.system.lattice)
-        index = (rng.integers(low = 0, high = self.system.N, size = 2))
-        # Get value and change spin
-        value = self.system.lattice[index[0], index[1]]
-        new_value = flip_spin(value)
-        self.system.new_lattice[index[0], index[1]] = new_value
-        return 0;
-
     def run_simulation_one_step(self):
-        self.modify_system_one_spin()
+        index = self.system.modify_system_one_spin()
         self.system.new_energy = self.system.get_energy(self.system.new_lattice)
+        #self.system.new_energy = self.system.energy + self.system.get_energy_single_spin()
         delta_energy = self.system.new_energy - self.system.energy
         randfloat = np.random.default_rng().random()
         #print(f"delta energy = {delta_energy}, chance = {np.exp((-1/self.system.T) * delta_energy)}, float ={randfloat} ")

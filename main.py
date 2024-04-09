@@ -1,13 +1,12 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-from scipy.ndimage import generate_binary_structure, convolve
 import scipy.constants as spc
 
 kb = spc.Boltzmann
-N = 50 #size of lattice square given by N x N 
+N = 4 #size of lattice square given by N x N 
 J = 1 # coupling constant 
 seed = 12
-T = 4.0
+T = 1.0
 
 
 def flip_spin(x):
@@ -25,24 +24,32 @@ class Lattice():
         self.N = N
         self.J = J
         self.T = T
-        if seed is None:
+        self.seed = seed
+        self.reset_system()
+        return 
+
+    def reset_system(self):
+        if self.seed is None:
             self.rng = np.random.default_rng()
         else:
-            self.rng = np.random.default_rng(seed)
+            self.rng = np.random.default_rng(self.seed)
 
         self.generate_spins()
         self.energy = self.get_energy(self.lattice)
-        return 
+        return 0
 
-
-    def generate_spins(self):
-        """Takes N input size and generates N x N lattice. ALso assignes +1 (spin-up) or -1 (spin-down) value to it"""
+    def generate_spins(self, start_temp = inf):
+        """Takes N input size and generates N x N lattice. ALso assignes +1 (spin-up) or -1 (spin-down) value to it.
+            start_temp = "inf" or "zero" """
         self.lattice = self.rng.integers(low = 0, high = 2, size = (N, N))*2 -1
+        #self.lattice = np.ones([self.N, self.N])
 
+    def get_energy_single_spin(self, lattice, index):
+        """Looks up spin at given index. Index should be a list with two entries."""
+            pass
 
     def get_energy(self, lattice):
         """Calculates the energy according to E = -J nearest-neighbours-sum s_i*s_j - H sum_i s_i"""
-        #TODO double verify if it works; it should work now
         # First shift to the four nearest neighbours, calculate product and then sum the whole thing 
         lattice_product = np.zeros([4, self.N, self.N])
         k = 0
@@ -65,11 +72,11 @@ class Simulation():
     def __init__(self, system, n_timesteps):
         self.system = system
         self.n_timesteps = n_timesteps
+        self.results = Results()
 
 
-    def modify_system(self):
+    def modify_system_one_spin(self):
         """Modifies the system by one spin"""
-        #TODO verify if np rng has to be called again each time 
         rng = np.random.default_rng()
         self.system.new_lattice = np.copy(self.system.lattice)
         index = (rng.integers(low = 0, high = self.system.N, size = 2))
@@ -80,12 +87,14 @@ class Simulation():
         return 0;
 
     def run_simulation_one_step(self):
-        self.modify_system()
+        self.modify_system_one_spin()
         self.system.new_energy = self.system.get_energy(self.system.new_lattice)
         delta_energy = self.system.new_energy - self.system.energy
-        print(np.exp((-1/self.system.T) * delta_energy))
-        if delta_energy <=0 or np.exp((-1/self.system.T) * delta_energy) > np.random.default_rng().random():
+        randfloat = np.random.default_rng().random()
+        #print(f"delta energy = {delta_energy}, chance = {np.exp((-1/self.system.T) * delta_energy)}, float ={randfloat} ")
+        if delta_energy <0 or np.exp((-1/self.system.T) * delta_energy) > 1 - randfloat:
             #TODO verify if correct
+            #print("ok!")
             self.system.lattice = self.system.new_lattice
             self.system.energy = self.system.new_energy
 
@@ -94,8 +103,19 @@ class Simulation():
         for i in range(0, self.n_timesteps):
             self.run_simulation_one_step()
             magnetisation[i] = self.system.get_total_magnetisation(self.system.lattice)
-        return magnetisation
+        self.results.magnetisation = magnetisation
+        return magnetisation;
 
+    def run_multiple_temperatures(self, temps):
+        """temps input as array"""
+        magnetisation_multiple_temps = np.zeros([len(temps), self.n_timesteps])
+        i = 0
+        for temp in temps:
+            self.system.T = temp
+            magnetisation_multiple_temps[i, :] = self.run_simulation()
+            self.system.reset_system()
+            i = i + 1
+        self.results.magnetisation_multiple_temps = magnetisation_multiple_temps
 
 
 class Results(object):
@@ -103,15 +123,43 @@ class Results(object):
         return
 
 
-def main():
-    lattice = Lattice(N, J, T)
-    simulation = Simulation(lattice, 1000)
-    magnetisation = simulation.run_simulation()
+def plot_magnetisation(magnetisation):
+    #plt.scatter(temps, magnetisation[:, -1]/N**2)
     plt.plot(magnetisation/N**2)
     plt.title("Mean magnetisation")
     plt.xlabel("time")
     plt.ylabel("magnetisation")
+    #plt.legend()
     plt.show()
+
+def plot_magnetisation_multiple_temps(magnetisation, temps):
+    plt.scatter(temps, np.abs(magnetisation[:, -1]/N**2))
+    plt.title("Mean magnetisation")
+    plt.xlabel("temperature")
+    plt.ylabel("magnetisation")
+    #plt.legend()
+    plt.show()
+
+def plot_lattice(lattice_start, lattice_end):
+    #Plot lattice
+    plt.matshow(lattice_start)
+    plt.show()
+
+    plt.matshow(lattice_end)
+    plt.show()
+
+def main():
+    n_timesteps = 1000
+    T = 1.0
+    lattice = Lattice(N, J, T)
+    lattice_start = lattice.lattice
+    simulation = Simulation(lattice, n_timesteps)
+    temps = np.linspace(1.0, 8.0, 8)
+    #simulation.run_simulation()
+    simulation.run_multiple_temperatures(temps)
+    lattice_end = simulation.system.lattice
+    plot_magnetisation_multiple_temps(simulation.results.magnetisation_multiple_temps, temps)
+    #plot_lattice(lattice_start, lattice_end)
 
 if __name__ == "__main__":
 

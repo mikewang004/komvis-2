@@ -1,9 +1,9 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 import scipy.constants as spc
-
+from tqdm import tqdm
 kb = spc.Boltzmann
-N = 4 #size of lattice square given by N x N 
+N = 50 #size of lattice square given by N x N 
 J = 1 # coupling constant 
 seed = 12
 T = 1.0
@@ -52,12 +52,27 @@ class Lattice():
     def generate_spins(self, start_temp = "inf"):
         """Takes N input size and generates N x N lattice. ALso assignes +1 (spin-up) or -1 (spin-down) value to it.
             start_temp = "inf" or "zero" """
-        self.lattice = self.rng.integers(low = 0, high = 2, size = (N, N))*2 -1
-        #self.lattice = np.ones([self.N, self.N])
+        if start_temp == "inf":
+            self.lattice = self.rng.integers(low = 0, high = 2, size = (N, N))*2 -1
+        elif start_temp == "zero":
+            self.lattice = np.ones([self.N, self.N])
+        else:
+            raise("start_temp has to be either 'zero' or 'inf'. ")
 
     def get_energy_single_spin(self, lattice, index):
         """Looks up spin at given index. Index should be a list with two entries."""
-            
+        energy = np.zeros(4); index_0 = index[0]; index_1 = index[1]
+        for i in range(0, 2):
+            for j in range(0, 2):
+                k = 2*i - 1; l = 2*j - 1
+                energy[i + j] = lattice[index[0], index[1]] * lattice[(index[0]+ k) % N, (index[1]+ l) % N]
+        return -J * np.sum(energy) 
+
+    def calc_delta_energy(self, lattice_old, lattice_new, index):
+        """Calculates difference in energy when one spin is changed in the system"""
+        delta = self.get_energy_single_spin(lattice_new, index) - self.get_energy_single_spin(lattice_old, index)
+        return delta
+        
 
     def get_energy(self, lattice):
         """Calculates the energy according to E = -J nearest-neighbours-sum s_i*s_j - H sum_i s_i"""
@@ -89,7 +104,6 @@ class Simulation():
     def run_simulation_one_step(self):
         index = self.system.modify_system_one_spin()
         self.system.new_energy = self.system.get_energy(self.system.new_lattice)
-        #self.system.new_energy = self.system.energy + self.system.get_energy_single_spin()
         delta_energy = self.system.new_energy - self.system.energy
         randfloat = np.random.default_rng().random()
         #print(f"delta energy = {delta_energy}, chance = {np.exp((-1/self.system.T) * delta_energy)}, float ={randfloat} ")
@@ -98,14 +112,27 @@ class Simulation():
             #print("ok!")
             self.system.lattice = self.system.new_lattice
             self.system.energy = self.system.new_energy
+        return 0;
+    
+    def run_simulation_one_step_one_spin(self):
+        index = self.system.modify_system_one_spin()
+        delta_energy = self.system.calc_delta_energy(self.system.lattice, self.system.new_lattice, index)
+        self.system.new_energy = self.system.energy + delta_energy
+        randfloat = np.random.default_rng().random()
+        if delta_energy <0 or np.exp((-1/self.system.T) * delta_energy) > 1 - randfloat:
+            self.system.lattice = self.system.new_lattice
+            self.system.energy = self.system.new_energy
+        return 0;
 
     def run_simulation(self):
         magnetisation = np.zeros([self.n_timesteps])
-        for i in range(0, self.n_timesteps):
-            self.run_simulation_one_step()
+        #for i in range(0, self.n_timesteps):
+        for i in tqdm(range(0, self.n_timesteps), desc="runnin"):
+            #self.run_simulation_one_step()
+            self.run_simulation_one_step_one_spin()
             magnetisation[i] = self.system.get_total_magnetisation(self.system.lattice)
         self.results.magnetisation = magnetisation
-        return magnetisation;
+        return magnetisation
 
     def run_multiple_temperatures(self, temps):
         """temps input as array"""
@@ -150,12 +177,12 @@ def plot_lattice(lattice_start, lattice_end):
     plt.show()
 
 def main():
-    n_timesteps = 1000
+    n_timesteps = 50000
     T = 1.0
     lattice = Lattice(N, J, T)
     lattice_start = lattice.lattice
     simulation = Simulation(lattice, n_timesteps)
-    temps = np.linspace(1.0, 8.0, 8)
+    temps = np.linspace(1.0, 4.0, 8)
     #simulation.run_simulation()
     simulation.run_multiple_temperatures(temps)
     lattice_end = simulation.system.lattice

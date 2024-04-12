@@ -63,9 +63,9 @@ class Lattice():
         """Looks up spin at given index. Index should be a list with two entries."""
         energy = np.zeros(4); index_0 = index[0]; index_1 = index[1]
         for i in range(0, 2):
-            for j in range(0, 2):
-                k = 2*i - 1; l = 2*j - 1
-                energy[i + j] = lattice[index[0], index[1]] * lattice[(index[0]+ k) % N, (index[1]+ l) % N]
+           for j in range(0, 2):
+               k = 2*i - 1; l = 2*j - 1
+               energy[i + j] = lattice[index[0], index[1]] * lattice[(index[0]+ k) % N, (index[1]+ l) % N]
         return -J * np.sum(energy) 
 
     def calc_delta_energy(self, lattice_old, lattice_new, index):
@@ -119,7 +119,8 @@ class Simulation():
         delta_energy = self.system.calc_delta_energy(self.system.lattice, self.system.new_lattice, index)
         self.system.new_energy = self.system.energy + delta_energy
         randfloat = np.random.default_rng().random()
-        if delta_energy <0 or np.exp((-1/self.system.T) * delta_energy) > 1 - randfloat:
+        if delta_energy <0 or np.exp((-1/self.system.T) * delta_energy) > randfloat:
+            #TODO verify if correct
             self.system.lattice = self.system.new_lattice
             self.system.energy = self.system.new_energy
         return 0;
@@ -182,12 +183,12 @@ def main():
     lattice = Lattice(N, J, T)
     lattice_start = lattice.lattice
     simulation = Simulation(lattice, n_timesteps)
-    temps = np.linspace(1.0, 4.0, 8)
-    #simulation.run_simulation()
-    simulation.run_multiple_temperatures(temps)
+    #temps = np.linspace(1.0, 4.0, 8)
+    simulation.run_simulation()
+    #simulation.run_multiple_temperatures(temps)
     lattice_end = simulation.system.lattice
-    plot_magnetisation_multiple_temps(simulation.results.magnetisation_multiple_temps, temps)
-    #plot_lattice(lattice_start, lattice_end)
+    #plot_magnetisation_multiple_temps(simulation.results.magnetisation_multiple_temps, temps)
+    plot_lattice(lattice_start, lattice_end)
 
 if __name__ == "__main__":
 

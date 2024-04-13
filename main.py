@@ -62,15 +62,18 @@ class Lattice():
     def get_energy_single_spin(self, lattice, index):
         """Looks up spin at given index. Index should be a list with two entries."""
         energy = np.zeros(4); index_0 = index[0]; index_1 = index[1]
+        m = 0
         for i in range(0, 2):
            for j in range(0, 2):
                k = 2*i - 1; l = 2*j - 1
-               energy[i + j] = lattice[index[0], index[1]] * lattice[(index[0]+ k) % N, (index[1]+ l) % N]
+               energy[m] = lattice[index[0], index[1]] * lattice[(index[0]+ k) % N, (index[1]+ l) % N]
+               m = m + 1
         return -J * np.sum(energy) 
 
     def calc_delta_energy(self, lattice_old, lattice_new, index):
         """Calculates difference in energy when one spin is changed in the system"""
         delta = self.get_energy_single_spin(lattice_new, index) - self.get_energy_single_spin(lattice_old, index)
+        #Note if you return -delta at T = 1.0 you get a maze-like plot
         return delta
         
 
@@ -102,6 +105,7 @@ class Simulation():
 
 
     def run_simulation_one_step(self):
+        """Depricated as of 12/04/2024"""
         index = self.system.modify_system_one_spin()
         self.system.new_energy = self.system.get_energy(self.system.new_lattice)
         delta_energy = self.system.new_energy - self.system.energy
@@ -117,12 +121,14 @@ class Simulation():
     def run_simulation_one_step_one_spin(self):
         index = self.system.modify_system_one_spin()
         delta_energy = self.system.calc_delta_energy(self.system.lattice, self.system.new_lattice, index)
-        self.system.new_energy = self.system.energy + delta_energy
         randfloat = np.random.default_rng().random()
-        if delta_energy <0 or np.exp((-1/self.system.T) * delta_energy) > randfloat:
+        beta = 1/self.system.T
+        #print(delta_energy, np.exp(-beta * delta_energy), randfloat)
+        #if np.exp(-beta * delta_energy) > randfloat:
             #TODO verify if correct
+            print(delta_energy)
             self.system.lattice = self.system.new_lattice
-            self.system.energy = self.system.new_energy
+            self.system.energy = self.system.energy + delta_energy
         return 0;
 
     def run_simulation(self):
@@ -178,7 +184,7 @@ def plot_lattice(lattice_start, lattice_end):
     plt.show()
 
 def main():
-    n_timesteps = 50000
+    n_timesteps = 100000
     T = 1.0
     lattice = Lattice(N, J, T)
     lattice_start = lattice.lattice

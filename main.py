@@ -3,20 +3,10 @@ import matplotlib.pyplot as plt
 import scipy.constants as spc
 from tqdm import tqdm
 kb = spc.Boltzmann
-N = 50 #size of lattice square given by N x N 
+N = 5 #size of lattice square given by N x N 
 J = 1 # coupling constant 
 seed = 12
 T = 1.0
-
-
-def flip_spin(x):
-    """Changes +1 spin to -1 and if spin = -1 to +1"""
-    if x == 1:
-        return -1
-    elif x == -1:
-        return +1
-    else:
-        raise Expection("Input has to be +1 or -1.")
 
 
 class Lattice():
@@ -45,8 +35,7 @@ class Lattice():
         index = (rng.integers(low = 0, high = self.N, size = 2))
         # Get value and change spin
         value = self.lattice[index[0], index[1]]
-        new_value = flip_spin(value)
-        self.new_lattice[index[0], index[1]] = new_value
+        self.new_lattice[index[0], index[1]] = -value
         return index;
 
     def generate_spins(self, start_temp = "inf"):
@@ -68,7 +57,7 @@ class Lattice():
                k = 2*i - 1; l = 2*j - 1
                energy[m] = lattice[index[0], index[1]] * lattice[(index[0]+ k) % N, (index[1]+ l) % N]
                m = m + 1
-        return -J * np.sum(energy) 
+        return -J * np.sum(energy)
 
     def calc_delta_energy(self, lattice_old, lattice_new, index):
         """Calculates difference in energy when one spin is changed in the system"""
@@ -123,10 +112,11 @@ class Simulation():
         delta_energy = self.system.calc_delta_energy(self.system.lattice, self.system.new_lattice, index)
         randfloat = np.random.default_rng().random()
         beta = 1/self.system.T
+        #beta = self.system.T
         #print(delta_energy, np.exp(-beta * delta_energy), randfloat)
-        #if np.exp(-beta * delta_energy) > randfloat:
+        if np.exp(-beta * delta_energy) > randfloat:
             #TODO verify if correct
-            print(delta_energy)
+            #print(delta_energy)
             self.system.lattice = self.system.new_lattice
             self.system.energy = self.system.energy + delta_energy
         return 0;
@@ -184,8 +174,8 @@ def plot_lattice(lattice_start, lattice_end):
     plt.show()
 
 def main():
-    n_timesteps = 100000
-    T = 1.0
+    n_timesteps = 1000000
+    T = 2.2
     lattice = Lattice(N, J, T)
     lattice_start = lattice.lattice
     simulation = Simulation(lattice, n_timesteps)

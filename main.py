@@ -119,7 +119,7 @@ class Lattice:
                 return 0;
 
 
-    def get_total_magnetisation(self, lattice):
+    def get_magnetisation(self, lattice):
         """Calculates total magnetisation according to M = sum_i s_i"""
         return np.sum(lattice)
 
@@ -133,9 +133,11 @@ class Simulation:
 
 
     def run_simulation(self):
-        for i in tqdm(range(0, self.n_timesteps), desc="runnin"):
+        self.results.magnetisation = np.zeros(self.n_timesteps)
+        for t in tqdm(range(0, self.n_timesteps), desc="runnin"):
             self.system.generate_proposed_state()
             self.system.validate_or_revert_proposition()
+            self.results.magnetisation[t] = self.system.get_magnetisation(self.system.spingrid)
         return 0;
 
 
@@ -147,7 +149,7 @@ class Simulation:
         for temp in temps:
             self.system.temperature = temp
             self.run_simulation()
-            magnetisation_multiple_temps[i, :] = self.system.get_total_magnetisation(self.system.spingrid)
+            magnetisation_multiple_temps[i, :] = self.results.magnetisation
             self.system.initialize()
             i = i + 1
         self.results.magnetisation_multiple_temps = magnetisation_multiple_temps
@@ -161,16 +163,16 @@ class Results(object):
 
 def main():
     n_spins = 50
-    temperature = 1.5; temps = np.linspace(1.0, 4.0, 20)
-    n_timesteps = 1000000*3
+    temperature = 1.5; temps = np.linspace(1.0, 4.0, 8)
+    n_timesteps = 1000000
     lattice = Lattice(n_spins, temperature)
     lattice_start = np.copy(lattice.spingrid)
     simulation = Simulation(lattice, n_timesteps)
-    simulation.run_simulation()
-    #simulation.run_multiple_temperatures(temps)
+    #simulation.run_simulation()
+    simulation.run_multiple_temperatures(temps)
     lattice_end = simulation.system.spingrid
-    #plot_magnetisation_multiple_temps(simulation.results.magnetisation_multiple_temps, temps, n_spins)
-    plot_lattice_parallel(lattice_start, lattice_end)
+    plot_magnetisation_multiple_temps(simulation.results.magnetisation_multiple_temps, temps, n_spins)
+    #plot_lattice_parallel(lattice_start, lattice_end)
 
 
 if __name__ == "__main__":

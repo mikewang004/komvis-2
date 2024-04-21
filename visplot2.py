@@ -12,8 +12,8 @@ def plot_magnetisation(magnetisation):
     plt.show()
 
 
-def plot_magnetisation_multiple_temps(magnetisation, temps):
-    plt.scatter(temps, np.abs(magnetisation[:, -1] / N**2))
+def plot_magnetisation_multiple_temps(magnetisation, temps, n_spins):
+    plt.scatter(temps, np.abs(magnetisation[:, -1] / n_spins**2))
     plt.title("Mean magnetisation")
     plt.xlabel("temperature")
     plt.ylabel("magnetisation")

@@ -5,6 +5,8 @@ from tqdm import tqdm
 
 from visplot2 import *
 
+J = 1
+kb = 1
 
 class Lattice:
     def __init__(self, n_spins, temperature, init_type="random"):
@@ -20,13 +22,14 @@ class Lattice:
         self.rng = np.random.default_rng()
         self.spingrid = self.initialize(init_type)
         self.proposed_state = np.zeros((self.n_spins, self.n_spins))
+        self.energy = self.get_initial_energy(self.spingrid)
         self.latest_attempted_flip = (0, 0)
         self.J = 1
         self.H = 1
 
         return
 
-    def initialize(self, init_type):
+    def initialize(self, init_type = "random"):
         if init_type == "random":
             generated_state = (
                 2 * self.rng.integers(low=0, high=2, size=(self.n_spins, self.n_spins))
@@ -54,6 +57,20 @@ class Lattice:
             -1 * self.spingrid[self.latest_attempted_flip]
         )
         return
+
+    def get_initial_energy(self, lattice):
+        """Calculates the energy according to E = -J nearest-neighbours-sum s_i*s_j - H sum_i s_i"""
+        # First shift to the four nearest neighbours, calculate product and then sum the whole thing
+        lattice_product = np.zeros([4, self.n_spins, self.n_spins])
+        k = 0
+        for i in range(0, 2):
+            for j in range(0, 2):
+                # Shift array
+                lattice_shift = np.roll(lattice, 2 * j - 1, axis=i)
+                lattice_product[k, :] = lattice_shift * lattice
+                k = k + 1
+        self.energy = -J * np.sum(lattice_product)
+        return 0;
 
     def revert_proposed_state(self):
         self.spingrid[self.latest_attempted_flip] = (
@@ -83,8 +100,8 @@ class Lattice:
         return delta_energy
 
     def validate_or_revert_proposition(self):
-        k_b = 1.3806503e-23
-        #k_b = 1
+        #k_b = 1.3806503e-23
+        k_b = 1
         delta_energy = self.get_proposed_delta_energy()
         beta = 1 / (k_b * self.temperature)
         if delta_energy < 0:
@@ -95,9 +112,11 @@ class Lattice:
                 [True, False], p=[acceptance_probability, 1 - acceptance_probability]
             )
             if random_accept:
-                pass
+                self.energy = self.energy + delta_energy
+                return 0;
             else:
                 self.revert_proposed_state()
+                return 0;
 
 
     def get_total_magnetisation(self, lattice):
@@ -120,14 +139,16 @@ class Simulation:
         return 0;
 
 
+
     def run_multiple_temperatures(self, temps):
         """temps input as array"""
         magnetisation_multiple_temps = np.zeros([len(temps), self.n_timesteps])
         i = 0
         for temp in temps:
             self.system.temperature = temp
-            magnetisation_multiple_temps[i, :] = self.run_simulation()
-            self.system.reset_system()
+            self.run_simulation()
+            magnetisation_multiple_temps[i, :] = self.system.get_total_magnetisation(self.system.spingrid)
+            self.system.initialize()
             i = i + 1
         self.results.magnetisation_multiple_temps = magnetisation_multiple_temps
 
@@ -140,14 +161,15 @@ class Results(object):
 
 def main():
     n_spins = 50
-    temperature = 1.0
-    n_timesteps = 1000000
+    temperature = 1.5; temps = np.linspace(1.0, 4.0, 20)
+    n_timesteps = 1000000*3
     lattice = Lattice(n_spins, temperature)
     lattice_start = np.copy(lattice.spingrid)
     simulation = Simulation(lattice, n_timesteps)
     simulation.run_simulation()
+    #simulation.run_multiple_temperatures(temps)
     lattice_end = simulation.system.spingrid
-
+    #plot_magnetisation_multiple_temps(simulation.results.magnetisation_multiple_temps, temps, n_spins)
     plot_lattice_parallel(lattice_start, lattice_end)
 
 

@@ -126,7 +126,6 @@ class Lattice:
         lattice = self.spingrid
         """Calcnp.sum(lattice)ulates total magnetisation according to M = sum_i s_i"""
         magnetisation = np.sum(self.spingrid)
-        print(magnetisation)
         self.magnetisation = magnetisation
         return 0
 
@@ -148,7 +147,6 @@ class Simulation:
             self.system.generate_proposed_state()
             self.system.validate_or_revert_proposition()
             self.system.update_magnetisation()
-            print(f"{np.copy(self.system.magnetisation)= }")
             self.results.magnetisation_over_time[t] = self.system.magnetisation
         return 0
 
@@ -160,7 +158,6 @@ class Simulation:
             self.system.temperature = temp
             self.system.initialize()
             self.run_simulation()
-            print(f"{self.results.magnetisation_over_time=}")
             magnetisation_multiple_temps[i, :] = self.results.magnetisation_over_time
             i = i + 1
         self.results.magnetisation_multiple_temps = magnetisation_multiple_temps
@@ -195,7 +192,6 @@ def main():
     lattice = Lattice(n_spins, temperature)
     simulation = Simulation(lattice, n_timesteps)
     simulation.run_multiple_temperatures()
-    print(simulation.results.magnetisation_multiple_temps)
 
     # plot_magnetisation_multiple_temps(
     #     simulation.results.mag_avg_over_reps,

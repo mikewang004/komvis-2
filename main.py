@@ -41,11 +41,11 @@ class Lattice:
     def generate_proposed_state(self):
         x_index = self.rng.integers(
             low=0,
-            high=self.n_spins - 1,
+            high=self.n_spins,
         )
         y_index = self.rng.integers(
             low=0,
-            high=self.n_spins - 1,
+            high=self.n_spins,
         )
         self.latest_attempted_flip = (x_index, y_index)
 
@@ -73,9 +73,9 @@ class Lattice:
             * (  # factor 2 due to taking difference between flipped and unflipped state.
                 # use the modulo operator such that N interacts with ( N + 1) % N = 1
                 self.spingrid[(x_flip + 1) % self.n_spins, y_flip]
-                + self.spingrid[x_flip - 1, y_flip]
+                + self.spingrid[(x_flip - 1) % self.n_spins, y_flip]
                 + self.spingrid[x_flip, (y_flip + 1) % self.n_spins]
-                + self.spingrid[x_flip, y_flip - 1]
+                + self.spingrid[x_flip, (y_flip - 1) % self.n_spins]
             )
         )  # + self.H * (
         #  self.spingrid[x_flip, y_flip]
@@ -84,6 +84,7 @@ class Lattice:
 
     def validate_or_revert_proposition(self):
         k_b = 1.3806503e-23
+        #k_b = 1
         delta_energy = self.get_proposed_delta_energy()
         beta = 1 / (k_b * self.temperature)
         if delta_energy < 0:
@@ -99,15 +100,56 @@ class Lattice:
                 self.revert_proposed_state()
 
 
-A = Lattice(50, 1)
-
-print(A.latest_attempted_flip)
-
-for i in range(0, 10000):
-    A.generate_proposed_state()
-    A.validate_or_revert_proposition()
-
-plot_lattice_parallel(A.spingrid, A.spingrid)
+    def get_total_magnetisation(self, lattice):
+        """Calculates total magnetisation according to M = sum_i s_i"""
+        return np.sum(lattice)
 
 
-#
+
+class Simulation:
+    def __init__(self, system, n_timesteps):
+        self.system = system
+        self.n_timesteps = n_timesteps
+        self.results = Results()
+
+
+    def run_simulation(self):
+        for i in tqdm(range(0, self.n_timesteps), desc="runnin"):
+            self.system.generate_proposed_state()
+            self.system.validate_or_revert_proposition()
+        return 0;
+
+
+    def run_multiple_temperatures(self, temps):
+        """temps input as array"""
+        magnetisation_multiple_temps = np.zeros([len(temps), self.n_timesteps])
+        i = 0
+        for temp in temps:
+            self.system.temperature = temp
+            magnetisation_multiple_temps[i, :] = self.run_simulation()
+            self.system.reset_system()
+            i = i + 1
+        self.results.magnetisation_multiple_temps = magnetisation_multiple_temps
+
+
+class Results(object):
+    def __init__(self):
+        return
+
+
+
+def main():
+    n_spins = 50
+    temperature = 1.0
+    n_timesteps = 1000000
+    lattice = Lattice(n_spins, temperature)
+    lattice_start = np.copy(lattice.spingrid)
+    simulation = Simulation(lattice, n_timesteps)
+    simulation.run_simulation()
+    lattice_end = simulation.system.spingrid
+
+    plot_lattice_parallel(lattice_start, lattice_end)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.constants as spc
+from scipy.linalg import hankel
 from tqdm import tqdm
 
 from visplot2 import *
@@ -26,6 +27,7 @@ class Lattice:
         self.proposed_state = np.zeros((self.n_spins, self.n_spins))
         self.energy = self.get_initial_energy(self.spingrid)
         self.magnetisation = 0
+        self.random_acceptance_probabilities = 0
         self.latest_attempted_flip = (0, 0)
         self.J = 1
         self.H = 1
@@ -40,6 +42,13 @@ class Lattice:
                 2 * self.rng.integers(low=0, high=2, size=(self.n_spins, self.n_spins))
                 - 1
             )
+            k_b = 1
+            beta = 1 / (k_b * self.temperature)
+            possible_delta_energy_values = np.array([0, 4, 8])
+            self.random_acceptance_probabilities = np.exp(
+                -beta * possible_delta_energy_values
+            )
+            print(f"{self.random_acceptance_probabilities=}")
         else:
             print("not supported")
             generated_state = None
@@ -105,15 +114,25 @@ class Lattice:
         return delta_energy
 
     def validate_or_revert_proposition(self):
-        k_b = 1
         delta_energy = self.get_proposed_delta_energy()
-        beta = 1 / (k_b * self.temperature)
         if delta_energy < 0:
             pass
         else:
-            acceptance_probability = np.exp(-beta * delta_energy)
+            if delta_energy == 0:
+                acceptance_probability = self.random_acceptance_probabilities[0]
+            elif delta_energy == 4:
+                acceptance_probability = self.random_acceptance_probabilities[1]
+            elif delta_energy == 8:
+                acceptance_probability = self.random_acceptance_probabilities[2]
+            else:
+                acceptance_probability = np.exp(-possible_delta_energy_values)
+
             random_accept = self.rng.choice(
-                [True, False], p=[acceptance_probability, 1 - acceptance_probability]
+                [True, False],
+                p=[
+                    acceptance_probability,
+                    1 - acceptance_probability,
+                ],
             )
             if random_accept:
                 self.energy = self.energy + delta_energy
@@ -151,14 +170,17 @@ class Simulation:
         return 0
 
     def run_multiple_temperatures(self, n_reps=1):
-        temps = np.linspace(1.0, 4.0, 10)
-        magnetisation_multiple_temps = np.zeros([len(temps), self.n_timesteps])
+        temps = np.linspace(1.0, 4.0, 3)
+        magnetisation_multiple_temps = {}
         i = 0
         for temp in temps:
+            run_name = str(temp)
             self.system.temperature = temp
             self.system.initialize()
             self.run_simulation()
-            magnetisation_multiple_temps[i, :] = self.results.magnetisation_over_time
+            magnetisation_multiple_temps[run_name] = (
+                self.results.magnetisation_over_time
+            )
             i = i + 1
         self.results.magnetisation_multiple_temps = magnetisation_multiple_temps
 
@@ -182,16 +204,47 @@ class Simulation:
 
 class Results(object):
     def __init__(self):
+        self.correlation_function = 0
+        return
+
+    def get_correlation_function(self):
+        """
+        Calculate correlation function from the definition.
+        The first large sum is calculated as: sum of j=0 to t_i - t_max of m(t_i) * m(t_i + t_j)
+        In matrix representation this is the same as duplicating the vector for each column 
+        and then shifting the m(t_i) vector i up times and replacing the below-diagonal indices 
+        with zeros. This is accomplished with the scipy linalg hankel function.
+        
+        """
+        #TODO implement proper time in MCMC steps
+        
+        for name, run in self.magnetisation_multiple_temps.items():
+            n_steps = len(run)
+            time_axis = np.linspace(0, n_steps, num=n_steps)
+            first_term = hankel(run)
+            normalization_factor = 1 / (n_steps - time_axis)
+
+
+
+            print(hankel)
+
+
+            n_points = len(run)
+            for i in range(0, n_points - 1)
+                corr = np.sum(run * )
+            print(name, run, "\n \n")
         return
 
 
 def main():
-    n_spins = 5
+    n_spins = 50
     temperature = 1.5
-    n_timesteps = 5
+    n_timesteps = 10000
     lattice = Lattice(n_spins, temperature)
     simulation = Simulation(lattice, n_timesteps)
     simulation.run_multiple_temperatures()
+    # print(simulation.results.magnetisation_multiple_temps)
+    simulation.results.get_correlation_function()
 
     # plot_magnetisation_multiple_temps(
     #     simulation.results.mag_avg_over_reps,

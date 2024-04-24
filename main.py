@@ -197,6 +197,7 @@ class Results(object):
 
         """
         # TODO implement proper time in MCMC steps
+        # TODO also implement proper start after equilisation system
         correlation_functions = {}
 
         for name, run in self.magnetisation_multiple_temps.items():
@@ -222,8 +223,20 @@ class Results(object):
             correlation_function[-1] = 0
             print(f"{correlation_function}")
             correlation_functions[name] = correlation_function
-
+            self.correlation_functions = correlation_functions
         return correlation_functions
+
+    def get_correlation_time(self):
+        """Calculates the correlation times according to tau = chi(t)/chi(0)"""
+        self.get_correlation_functions()
+        correlation_times = {}
+        for name, run in self.correlation_functions.items():
+            # Apply first mask on values chi(t) < 0 
+            stop_index = np.where(run < 0)[0][0]
+            correlation_times[name] = np.sum(run[:stop_index]/ run[0])
+            print(correlation_times[name])
+        return correlation_times
+            
 
 
 def main():
@@ -236,12 +249,14 @@ def main():
     simulation.run_multiple_temperatures()
     plot_lattice_parallel(lattice_before, lattice.spingrid)
     # print(simulation.results.magnetisation_multiple_temps)
-    # corrfuncs = simulation.results.get_correlation_functions()
-    # keuze = corrfuncs["1.0"]
-    # plt.figure()
-    # plt.plot(keuze)
-    # plt.show()
-    #
+    #corrfuncs = simulation.results.get_correlation_functions()
+    simulation.results.get_correlation_time()
+    #keuze = corrfuncs["2.0"]
+    #print(keuze)
+    #plt.figure()
+    #plt.plot(keuze)
+    #plt.show()
+
     # plot_magnetisation_multiple_temps(
     #     simulation.results.mag_avg_over_reps,
     #     temps,

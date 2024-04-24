@@ -207,33 +207,45 @@ class Results(object):
         self.correlation_function = 0
         return
 
-    def get_correlation_function(self):
+    def get_correlation_functions(self):
         """
         Calculate correlation function from the definition.
         The first large sum is calculated as: sum of j=0 to t_i - t_max of m(t_i) * m(t_i + t_j)
-        In matrix representation this is the same as duplicating the vector for each column 
-        and then shifting the m(t_i) vector i up times and replacing the below-diagonal indices 
+        In matrix representation this is the same as duplicating the vector for each column
+        and then shifting the m(t_i) vector i up times and replacing the below-diagonal indices
         with zeros. This is accomplished with the scipy linalg hankel function.
-        
+        We only calculate the correlation function for t < t_max as the
+        normalization diverges at t = t_max
+
         """
-        #TODO implement proper time in MCMC steps
-        
+        # TODO implement proper time in MCMC steps
+        correlation_functions = {}
+
         for name, run in self.magnetisation_multiple_temps.items():
             n_steps = len(run)
+            matrix_shape = (n_steps, n_steps)
             time_axis = np.linspace(0, n_steps, num=n_steps)
-            first_term = hankel(run)
-            normalization_factor = 1 / (n_steps - time_axis)
 
+            ones_above_antidiagonal = np.flip(np.triu(np.ones(matrix_shape)), axis=1)
+            ones_upper_triangle = np.triu(np.ones(matrix_shape))
 
+            normalization_vector = 1 / (n_steps - time_axis)
 
-            print(hankel)
+            # eliminate the last term which diverges due to division by zero
+            normalization_vector[-1] = 0
+            shifted_rolled_matrix = hankel(run)
 
+            first_term = shifted_rolled_matrix @ run * normalization_vector
+            second_term = normalization_vector * (ones_above_antidiagonal @ run)
+            third_term = normalization_vector * (ones_upper_triangle @ run)
+            correlation_function = first_term - second_term * third_term
 
-            n_points = len(run)
-            for i in range(0, n_points - 1)
-                corr = np.sum(run * )
-            print(name, run, "\n \n")
-        return
+            # eliminate the last term which diverges due to division by zero
+            correlation_function[-1] = 0
+            print(f"{correlation_function}")
+            correlation_functions[name] = correlation_function
+
+        return correlation_functions
 
 
 def main():
@@ -244,7 +256,13 @@ def main():
     simulation = Simulation(lattice, n_timesteps)
     simulation.run_multiple_temperatures()
     # print(simulation.results.magnetisation_multiple_temps)
-    simulation.results.get_correlation_function()
+    corrfuncs = simulation.results.get_correlation_functions()
+    keuze = corrfuncs["1.0"]
+    plt.figure()
+    plt.plot(keuze)
+    plt.show()
+
+    print(corrfuncs)
 
     # plot_magnetisation_multiple_temps(
     #     simulation.results.mag_avg_over_reps,

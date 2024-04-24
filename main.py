@@ -170,7 +170,7 @@ class Simulation:
         return 0
 
     def run_multiple_temperatures(self, n_reps=1):
-        temps = np.linspace(1.0, 4.0, 3)
+        temps = np.linspace(1.0, 4.0, 4)
         magnetisation_multiple_temps = {}
         i = 0
         for temp in temps:
@@ -257,7 +257,7 @@ def main():
     simulation.run_multiple_temperatures()
     # print(simulation.results.magnetisation_multiple_temps)
     corrfuncs = simulation.results.get_correlation_functions()
-    keuze = corrfuncs["1.0"]
+    keuze = corrfuncs["2.0"]
     plt.figure()
     plt.plot(keuze)
     plt.show()

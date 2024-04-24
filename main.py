@@ -158,7 +158,7 @@ class Simulation:
     def run_simulation(self):
         self.system.initialize()
         self.initialize_simulation()
-        self.thermalize()
+        # self.thermalize()
 
         for t in tqdm(range(0, self.n_timesteps), desc="runnin"):
             self.system.generate_proposed_state()
@@ -173,6 +173,8 @@ class Simulation:
         fluctuation_prev = 1e10
         lookback = 5
         threshold = 5
+
+        # make an array with large variance so the loop starts off True
         previous_n_fluctuations = [fluctuation_prev,0.1*fluctuation_prev,0.01* fluctuation_prev,0.001* fluctuation_prev,fluctuation_prev]
 
         condition = True
@@ -186,12 +188,6 @@ class Simulation:
                 self.system.validate_or_revert_proposition()
                 total_spin = np.sum(self.system.spingrid)
                 thermalize_magnetisation_over_time[t] = total_spin
-
-            # plt.figure()
-            # plt.title('self.results.magnetisation_over_time')
-            # plt.plot(thermalize_magnetisation_over_time)
-            # plt.show()
-            #aaaaaa
 
             fluctuation  = np.std(thermalize_magnetisation_over_time)
             previous_n_fluctuations.append(fluctuation)
@@ -217,7 +213,7 @@ class Simulation:
             for repeat_measurement in np.arange(0, n_reps):
                 print(f"{j=}")
                 self.system.initialize()
-                self.thermalize()
+                # self.thermalize()
                 self.run_simulation()
                 if debug:
                     plot_lattice_parallel(self.system.spingrid, self.system.spingrid)
@@ -242,6 +238,35 @@ class Results(object):
         self.correlation_function = 0
         return
 
+    def get_correlation_functions2(self):
+        """
+        Calculate correlation function from the definition.
+        The first large sum is calculated as: sum of j=0 to t_i - t_max of m(t_i) * m(t_i + t_j)
+        In matrix representation this is the same as duplicating the vector for each column
+        and then shifting the m(t_i) vector i up times and replacing the below-diagonal indices
+        with zeros. This is accomplished with the scipy linalg hankel function.
+        We only calculate the correlation function for t < t_max as the
+        normalization diverges at t = t_max
+
+        """
+        # TODO implement proper time in MCMC steps
+
+        calculate_last = -10000
+        correlation_functions = {}
+
+        for name, run in self.magnetisation_multiple_temps.items():
+            print(f"{run=}")
+            run = run[calculate_last:]
+            n_steps = len(run)
+            matrix_shape = (n_steps, n_steps)
+            time_axis = np.linspace(0, n_steps, num=n_steps)
+
+            result = np.correlate(run, run, mode='full')
+            final_result = result[result.size//2:]
+
+            correlation_functions[name] = final_result 
+
+        return correlation_functions
     def get_correlation_functions(self):
         """
         Calculate correlation function from the definition.
@@ -298,27 +323,36 @@ simulation = Simulation(lattice, n_timesteps)
 simulation.run_multiple_temperatures()
 # plot_lattice_parallel(lattice_before, lattice.spingrid)
 # print(simulation.results.magnetisation_multiple_temps)
-corrfuncs = simulation.results.get_correlation_functions()
+corrfuncs = simulation.results.get_correlation_functions2()
 print('done')
 
 # %%
-num = 10
-color = iter(plt.cm.rainbow(np.linspace(0, 1, num)))
+
+print(f'{corrfuncs=}')
+
+n_colors = 10
+color = iter(plt.cm.rainbow(np.linspace(0, 1, n_colors)))
 plt.figure()
 first_zero_indices = []
 for name, run_at_temp in corrfuncs.items():
     fake_time_axis = np.arange(0, len(run_at_temp))
-    c = next(color)
-    plt.plot(fake_time_axis, run_at_temp, c=c, label=name)
+    graph_color = next(color)
+
+    plt.plot(fake_time_axis, run_at_temp, c=graph_color, label=name)
     plt.legend()
     plt.axhline(0)
-    condition = np.isclose(run_at_temp, 0 , 0, 10.8)
+
+    
+    abs_closeness = 1e8
+    condition = np.isclose(run_at_temp, 0 , 0, abs_closeness)
+
     locations = np.where(condition)
     first_to_meet_condition = locations[0][0]
     first_zero_indices.append(first_to_meet_condition)
 
-    print(name, locations)
+    plt.axis([None, None, -500, 1000])
     plt.scatter(fake_time_axis[condition ], run_at_temp[condition], marker='x')
+
 plt.axis([None, None, -500, 1000])
 plt.show()
 

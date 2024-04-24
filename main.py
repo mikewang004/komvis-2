@@ -127,13 +127,8 @@ class Lattice:
             else:
                 acceptance_probability = np.exp(-possible_delta_energy_values)
 
-            random_accept = self.rng.choice(
-                [True, False],
-                p=[
-                    acceptance_probability,
-                    1 - acceptance_probability,
-                ],
-            )
+            random_accept = self.rng.random() < acceptance_probability
+
             if random_accept:
                 self.energy = self.energy + delta_energy
                 return 0
@@ -170,7 +165,7 @@ class Simulation:
         return 0
 
     def run_multiple_temperatures(self, n_reps=1):
-        temps = np.linspace(1.0, 4.0, 3)
+        temps = np.linspace(1.0, 2.0, 1)
         magnetisation_multiple_temps = {}
         i = 0
         for temp in temps:
@@ -183,23 +178,6 @@ class Simulation:
             )
             i = i + 1
         self.results.magnetisation_multiple_temps = magnetisation_multiple_temps
-
-    # def run_multiple_times_multiple_temperatures(self, temps, n_reps=5):
-    #     magetisation_multiple_reps = np.zeros([n_reps, len(temps), self.n_timesteps])
-    #     for n in range(0, n_reps):
-    #         self.run_multiple_temperatures(temps)
-    #         magetisation_multiple_reps[n, :, :] = (
-    #             self.results.magnetisation_multiple_temps
-    #         )
-    #
-    #     # Now calculate error over time
-    #     mag_avg_over_reps = np.mean(magetisation_multiple_reps, axis=0)
-    #     mag_std_over_reps = np.std(np.abs(magetisation_multiple_reps), axis=0)
-    #
-    # np.savetxt("mag_avg_test.txt", mag_avg_over_reps)
-    # np.savetxt("mag_std_test.txt", mag_std_over_reps)
-    # self.results.mag_avg_over_reps = mag_avg_over_reps
-    # self.results.mag_std_over_reps = mag_std_over_reps
 
 
 class Results(object):
@@ -251,19 +229,19 @@ class Results(object):
 def main():
     n_spins = 50
     temperature = 1.5
-    n_timesteps = 10000
+    n_timesteps = 1500000
     lattice = Lattice(n_spins, temperature)
+    lattice_before = np.copy(lattice.spingrid)
     simulation = Simulation(lattice, n_timesteps)
     simulation.run_multiple_temperatures()
+    plot_lattice_parallel(lattice_before, lattice.spingrid)
     # print(simulation.results.magnetisation_multiple_temps)
-    corrfuncs = simulation.results.get_correlation_functions()
-    keuze = corrfuncs["1.0"]
-    plt.figure()
-    plt.plot(keuze)
-    plt.show()
-
-    print(corrfuncs)
-
+    # corrfuncs = simulation.results.get_correlation_functions()
+    # keuze = corrfuncs["1.0"]
+    # plt.figure()
+    # plt.plot(keuze)
+    # plt.show()
+    #
     # plot_magnetisation_multiple_temps(
     #     simulation.results.mag_avg_over_reps,
     #     temps,

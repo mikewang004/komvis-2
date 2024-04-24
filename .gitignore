@@ -1,2 +1,3 @@
 tests.py
 data/
+__pycache__/

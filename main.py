@@ -184,23 +184,6 @@ class Simulation:
             i = i + 1
         self.results.magnetisation_multiple_temps = magnetisation_multiple_temps
 
-    # def run_multiple_times_multiple_temperatures(self, temps, n_reps=5):
-    #     magetisation_multiple_reps = np.zeros([n_reps, len(temps), self.n_timesteps])
-    #     for n in range(0, n_reps):
-    #         self.run_multiple_temperatures(temps)
-    #         magetisation_multiple_reps[n, :, :] = (
-    #             self.results.magnetisation_multiple_temps
-    #         )
-    #
-    #     # Now calculate error over time
-    #     mag_avg_over_reps = np.mean(magetisation_multiple_reps, axis=0)
-    #     mag_std_over_reps = np.std(np.abs(magetisation_multiple_reps), axis=0)
-    #
-    # np.savetxt("mag_avg_test.txt", mag_avg_over_reps)
-    # np.savetxt("mag_std_test.txt", mag_std_over_reps)
-    # self.results.mag_avg_over_reps = mag_avg_over_reps
-    # self.results.mag_std_over_reps = mag_std_over_reps
-
 
 class Results(object):
     def __init__(self):
@@ -219,6 +202,7 @@ class Results(object):
 
         """
         # TODO implement proper time in MCMC steps
+        # TODO also implement proper start after equilisation system
         correlation_functions = {}
 
         for name, run in self.magnetisation_multiple_temps.items():
@@ -244,8 +228,20 @@ class Results(object):
             correlation_function[-1] = 0
             print(f"{correlation_function}")
             correlation_functions[name] = correlation_function
-
+            self.correlation_functions = correlation_functions
         return correlation_functions
+
+    def get_correlation_time(self):
+        """Calculates the correlation times according to tau = chi(t)/chi(0)"""
+        self.get_correlation_functions()
+        correlation_times = {}
+        for name, run in self.correlation_functions.items():
+            # Apply first mask on values chi(t) < 0 
+            stop_index = np.where(run < 0)[0][0]
+            correlation_times[name] = np.sum(run[:stop_index]/ run[0])
+            print(correlation_times[name])
+        return correlation_times
+            
 
 
 def main():
@@ -256,13 +252,13 @@ def main():
     simulation = Simulation(lattice, n_timesteps)
     simulation.run_multiple_temperatures()
     # print(simulation.results.magnetisation_multiple_temps)
-    corrfuncs = simulation.results.get_correlation_functions()
-    keuze = corrfuncs["2.0"]
-    plt.figure()
-    plt.plot(keuze)
-    plt.show()
-
-    print(corrfuncs)
+    #corrfuncs = simulation.results.get_correlation_functions()
+    simulation.results.get_correlation_time()
+    #keuze = corrfuncs["2.0"]
+    #print(keuze)
+    #plt.figure()
+    #plt.plot(keuze)
+    #plt.show()
 
     # plot_magnetisation_multiple_temps(
     #     simulation.results.mag_avg_over_reps,

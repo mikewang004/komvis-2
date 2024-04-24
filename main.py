@@ -1,3 +1,4 @@
+#%%
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.constants as spc
@@ -155,7 +156,9 @@ class Simulation:
         return
 
     def run_simulation(self):
+        self.system.initialize()
         self.initialize_simulation()
+        self.thermalize()
 
         for t in tqdm(range(0, self.n_timesteps), desc="runnin"):
             self.system.generate_proposed_state()
@@ -164,17 +167,71 @@ class Simulation:
             self.results.magnetisation_over_time[t] = self.system.magnetisation
         return 0
 
-    def run_multiple_temperatures(self, n_reps=1):
-        temps = np.linspace(1.0, 2.0, 1)
+    def thermalize(self):
+        block_size = 20000
+        fluctuation = 1e10
+        fluctuation_prev = 1e10
+        lookback = 5
+        threshold = 5
+        previous_n_fluctuations = [fluctuation_prev,0.1*fluctuation_prev,0.01* fluctuation_prev,0.001* fluctuation_prev,fluctuation_prev]
+
+        condition = True
+
+        i=0
+        while condition:
+            condition = np.std(previous_n_fluctuations[-lookback:])  > threshold
+            thermalize_magnetisation_over_time = np.zeros((block_size))
+            for t in range(0, block_size):
+                self.system.generate_proposed_state()
+                self.system.validate_or_revert_proposition()
+                total_spin = np.sum(self.system.spingrid)
+                thermalize_magnetisation_over_time[t] = total_spin
+
+            # plt.figure()
+            # plt.title('self.results.magnetisation_over_time')
+            # plt.plot(thermalize_magnetisation_over_time)
+            # plt.show()
+            #aaaaaa
+
+            fluctuation  = np.std(thermalize_magnetisation_over_time)
+            previous_n_fluctuations.append(fluctuation)
+
+            print(f'{fluctuation=} {condition=}')
+
+            i +=1
+
+        return 0
+
+        
+    
+
+    def run_multiple_temperatures(self, n_reps=1, n_temps=10, debug=True):
+        temps = np.linspace(1.0, 4.0, n_temps)
         magnetisation_multiple_temps = {}
         i = 0
         for temp in temps:
             run_name = str(temp)
             self.system.temperature = temp
-            self.system.initialize()
-            self.run_simulation()
-            magnetisation_multiple_temps[run_name] = (
-                self.results.magnetisation_over_time
+            magnetisation_over_runs = []
+            j = 0
+            for repeat_measurement in np.arange(0, n_reps):
+                print(f"{j=}")
+                self.system.initialize()
+                self.thermalize()
+                self.run_simulation()
+                if debug:
+                    plot_lattice_parallel(self.system.spingrid, self.system.spingrid)
+                    plt.figure()
+                    plt.title('self.results.magnetisation_over_time')
+                    plt.plot(self.results.magnetisation_over_time)
+                    plt.show()
+                else:
+                    pass
+                magnetisation_over_runs.append(self.results.magnetisation_over_time)
+                j += 1
+
+            magnetisation_multiple_temps[run_name] = np.mean(
+                magnetisation_over_runs, axis=0
             )
             i = i + 1
         self.results.magnetisation_multiple_temps = magnetisation_multiple_temps
@@ -197,9 +254,13 @@ class Results(object):
 
         """
         # TODO implement proper time in MCMC steps
+
+        calculate_last = -10000
         correlation_functions = {}
 
         for name, run in self.magnetisation_multiple_temps.items():
+            print(f"{run=}")
+            run = run[calculate_last:]
             n_steps = len(run)
             matrix_shape = (n_steps, n_steps)
             time_axis = np.linspace(0, n_steps, num=n_steps)
@@ -226,30 +287,52 @@ class Results(object):
         return correlation_functions
 
 
-def main():
-    n_spins = 50
-    temperature = 1.5
-    n_timesteps = 1500000
-    lattice = Lattice(n_spins, temperature)
-    lattice_before = np.copy(lattice.spingrid)
-    simulation = Simulation(lattice, n_timesteps)
-    simulation.run_multiple_temperatures()
-    plot_lattice_parallel(lattice_before, lattice.spingrid)
-    # print(simulation.results.magnetisation_multiple_temps)
-    # corrfuncs = simulation.results.get_correlation_functions()
-    # keuze = corrfuncs["1.0"]
-    # plt.figure()
-    # plt.plot(keuze)
-    # plt.show()
-    #
-    # plot_magnetisation_multiple_temps(
-    #     simulation.results.mag_avg_over_reps,
-    #     temps,
-    #     n_spins,
-    #     std=simulation.results.mag_std_over_reps,
-    # )
-    #
+
+n_spins = 50
+temperature = 2.269
+n_timesteps = 150000
+lattice = Lattice(n_spins, temperature)
+lattice_before = np.copy(lattice.spingrid)
+simulation = Simulation(lattice, n_timesteps)
+
+simulation.run_multiple_temperatures()
+# plot_lattice_parallel(lattice_before, lattice.spingrid)
+# print(simulation.results.magnetisation_multiple_temps)
+corrfuncs = simulation.results.get_correlation_functions()
+print('done')
+
+# %%
+num = 10
+color = iter(plt.cm.rainbow(np.linspace(0, 1, num)))
+plt.figure()
+first_zero_indices = []
+for name, run_at_temp in corrfuncs.items():
+    fake_time_axis = np.arange(0, len(run_at_temp))
+    c = next(color)
+    plt.plot(fake_time_axis, run_at_temp, c=c, label=name)
+    plt.legend()
+    plt.axhline(0)
+    condition = np.isclose(run_at_temp, 0 , 0, 10.8)
+    locations = np.where(condition)
+    first_to_meet_condition = locations[0][0]
+    first_zero_indices.append(first_to_meet_condition)
+
+    print(name, locations)
+    plt.scatter(fake_time_axis[condition ], run_at_temp[condition], marker='x')
+plt.axis([None, None, -500, 1000])
+plt.show()
 
 
-if __name__ == "__main__":
-    main()
+plt.figure()
+plt.plot(first_zero_indices)
+
+# plot_magnetisation_multiple_temps(
+#     simulation.results.mag_avg_over_reps,
+#     temps,
+#     n_spins,
+#     std=simulation.results.mag_std_over_reps,
+# )
+#
+
+
+# %%

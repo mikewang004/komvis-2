@@ -27,7 +27,6 @@ class Lattice:
         self.proposed_state = np.zeros((self.n_spins, self.n_spins))
         self.energy = self.get_initial_energy(self.spingrid)
         self.magnetisation = 0
-        self.random_acceptance_probabilities = 0
         self.latest_attempted_flip = (0, 0)
         self.J = 1
         self.H = 1
@@ -241,16 +240,18 @@ class Results(object):
 
 def main():
     n_spins = 50
-    temperature = 1.5
-    n_timesteps = 1500000
+    temperature = 2.3
+    n_timesteps = 5000000
     lattice = Lattice(n_spins, temperature)
     lattice_before = np.copy(lattice.spingrid)
     simulation = Simulation(lattice, n_timesteps)
-    simulation.run_multiple_temperatures()
-    plot_lattice_parallel(lattice_before, lattice.spingrid)
+    simulation.run_simulation()
+    lattice_end = np.copy(simulation.system.spingrid)
+    plot_lattice_parallel(lattice_before, lattice_end)
+    #simulation.run_multiple_temperatures()
     # print(simulation.results.magnetisation_multiple_temps)
     #corrfuncs = simulation.results.get_correlation_functions()
-    simulation.results.get_correlation_time()
+    #simulation.results.get_correlation_time()
     #keuze = corrfuncs["2.0"]
     #print(keuze)
     #plt.figure()

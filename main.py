@@ -165,7 +165,7 @@ class Simulation:
         return 0
 
     def run_multiple_temperatures(self, n_reps=1):
-        temps = np.linspace(1.0, 2.0, 1)
+        temps = np.linspace(1.0, 4.0, 4)
         magnetisation_multiple_temps = {}
         i = 0
         for temp in temps:

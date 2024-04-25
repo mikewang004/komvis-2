@@ -5,15 +5,21 @@ from scipy.linalg import hankel
 from tqdm import tqdm
 
 
-correlation_times_1 = np.load("data/correlation-times.npy", allow_pickle = True)
-correlation_times_2 = np.load("data/correlation-times-2.npy", allow_pickle = True)
-correlation_times_3 = np.load("data/correlation-times-3.npy", allow_pickle = True)
-correlation_times_new = np.load("data/correlation-times-new.npy", allow_pickle = True)
+max_i = 8
+temps = np.linspace(1.0, 4.0, 16)
+correlation_times = np.zeros([max_i, 16])
+for i in range(1, max_i+1):
+    x = np.load(f"data/correlation_times-{i}.npy", allow_pickle = True)
+    corr_times = np.array(list(x.item().values()))
+    correlation_times[i-1] = corr_times/2500
 
 
-x = correlation_times_1 | correlation_times_2 | correlation_times_3
-#x = correlation_times_1 | correlation_times_new
-print(x)
+# Now plot correlation times 
 
-plt.plot(np.linspace(1.0, 4.0, 15), x.values())
+for i in range(0, max_i):
+    plt.scatter(temps, correlation_times[i, :])
+plt.plot(temps, np.mean(correlation_times, axis = 0), marker = "D", color= "g")
+plt.title("Correlation times as function of temperature for 2d Ising model, N = 50")
+plt.xlabel("Temperature")
+plt.ylabel("Correlation times (t/MC sweep)")
 plt.show()

@@ -140,7 +140,7 @@ class Lattice:
         lattice = self.spingrid
         """Calcnp.sum(lattice)ulates total magnetisation according to M = sum_i s_i"""
         magnetisation = np.sum(self.spingrid)
-        self.magnetisation = magnetisation
+        self.magnetisation = np.abs(magnetisation)
         return 0
 
 
@@ -185,7 +185,7 @@ class Results(object):
         return
 
     def get_correlation_functions(self):
-        """
+        """Depricated, use new_correlation_functions instead.
         Calculate correlation function from the definition.
         The first large sum is calculated as: sum of j=0 to t_i - t_max of m(t_i) * m(t_i + t_j)
         In matrix representation this is the same as duplicating the vector for each column
@@ -259,6 +259,7 @@ class Results(object):
             test = np.sum(run[:stop_index]/ run[0])
             correlation_times[name] = np.sum(run[:stop_index]/ run[0])
         print(correlation_times)
+        np.save("data/correlation_times-10.npy", correlation_times)
         return correlation_times
             
 
@@ -266,8 +267,9 @@ class Results(object):
 def main():
     n_spins = 50
     temperature = 1.5
-    n_timesteps = int(250000*4)
-    temps = np.linspace(3.0, 4.0, 5)
+    n_timesteps =  250000*4 #int(250000*4) 
+    temps = np.linspace(1.0, 4.0, 16)
+    print(temps)
     lattice = Lattice(n_spins, temperature)
     lattice_before = np.copy(lattice.spingrid)
     simulation = Simulation(lattice, n_timesteps)

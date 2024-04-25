@@ -41,3 +41,5 @@ def plot_lattice_parallel(lattice_start, lattice_end):
     axis[1].set(title="new")
     axis[1].matshow(lattice_end)
     plt.show()
+
+

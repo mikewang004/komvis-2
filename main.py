@@ -164,8 +164,7 @@ class Simulation:
             self.results.magnetisation_over_time[t] = self.system.magnetisation
         return 0
 
-    def run_multiple_temperatures(self, n_reps=1):
-        temps = np.linspace(1.0, 4.0, 4)
+    def run_multiple_temperatures(self, temps, n_reps=1):
         magnetisation_multiple_temps = {}
         i = 0
         for temp in temps:
@@ -226,15 +225,40 @@ class Results(object):
             self.correlation_functions = correlation_functions
         return correlation_functions
 
+
+    def new_correlation_functions(self):
+        correlation_functions = {}
+        for name, run in self.magnetisation_multiple_temps.items():
+            eff_run = run[-250000:]
+            n_steps = len(eff_run)
+            correlation_function = np.zeros([n_steps])
+            time_axis = np.linspace(0, n_steps, num=n_steps)
+            for t in range(n_steps):
+                upper_limit = len(eff_run) - t
+                normalisation_factor = 1/upper_limit
+                first_term = normalisation_factor * np.correlate(eff_run[:upper_limit], eff_run[t:]) 
+                second_term = normalisation_factor * np.sum(eff_run[:upper_limit])
+                third_term = normalisation_factor * np.sum(eff_run[t:])
+                correlation_function[t] = first_term - (second_term * third_term)
+            correlation_function[-1] = 0
+            correlation_functions[name] = correlation_function
+        self.correlation_functions = correlation_functions
+        return 0;
+
+
     def get_correlation_time(self):
         """Calculates the correlation times according to tau = chi(t)/chi(0)"""
-        self.get_correlation_functions()
+        self.new_correlation_functions()
+        print(self.correlation_functions)
         correlation_times = {}
         for name, run in self.correlation_functions.items():
             # Apply first mask on values chi(t) < 0 
+            print(run)
             stop_index = np.where(run < 0)[0][0]
+            print(stop_index)
+            test = np.sum(run[:stop_index]/ run[0])
             correlation_times[name] = np.sum(run[:stop_index]/ run[0])
-            print(correlation_times[name])
+        print(correlation_times)
         return correlation_times
             
 
@@ -242,12 +266,13 @@ class Results(object):
 def main():
     n_spins = 50
     temperature = 1.5
-    n_timesteps = 1500000
+    n_timesteps = int(250000*4)
+    temps = np.linspace(3.0, 4.0, 5)
     lattice = Lattice(n_spins, temperature)
     lattice_before = np.copy(lattice.spingrid)
     simulation = Simulation(lattice, n_timesteps)
-    simulation.run_multiple_temperatures()
-    plot_lattice_parallel(lattice_before, lattice.spingrid)
+    simulation.run_multiple_temperatures(temps)
+    #plot_lattice_parallel(lattice_before, lattice.spingrid)
     # print(simulation.results.magnetisation_multiple_temps)
     #corrfuncs = simulation.results.get_correlation_functions()
     simulation.results.get_correlation_time()
@@ -257,13 +282,7 @@ def main():
     #plt.plot(keuze)
     #plt.show()
 
-    # plot_magnetisation_multiple_temps(
-    #     simulation.results.mag_avg_over_reps,
-    #     temps,
-    #     n_spins,
-    #     std=simulation.results.mag_std_over_reps,
-    # )
-    #
+    
 
 
 if __name__ == "__main__":

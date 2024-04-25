@@ -10,6 +10,7 @@ J = 1
 kb = 1
 
 
+
 class Lattice:
     def __init__(self, n_spins, temperature, init_type="random"):
         """Lattice of spins with a number of lattice operations
@@ -145,16 +146,18 @@ class Lattice:
 
 
 class Simulation:
-    def __init__(self, system, n_timesteps):
+    def __init__(self, system, n_timesteps, tau = None):
         self.system = system
         self.n_timesteps = n_timesteps
         self.results = Results()
+        if tau is not None:
+            self.correlation_times = tau
 
     def initialize_simulation(self):
         self.results.magnetisation_over_time = np.zeros(self.n_timesteps)
         return
 
-    def run_simulation(self):
+    def run_simulation(self, temp):
         self.initialize_simulation()
 
         for t in tqdm(range(0, self.n_timesteps), desc="runnin"):
@@ -164,6 +167,36 @@ class Simulation:
             self.results.magnetisation_over_time[t] = self.system.magnetisation
         return 0
 
+    def thermalize(self):
+        block_size = 20000
+        fluctuation = 1e10
+        fluctuation_prev = 1e10
+        lookback = 5
+        threshold = 5
+
+        # make an array with large variance so the loop starts off True
+        previous_n_fluctuations = [fluctuation_prev,0.1*fluctuation_prev,0.01* fluctuation_prev,0.001* fluctuation_prev,fluctuation_prev]
+
+        condition = True
+
+        i=0
+        while condition:
+            condition = np.std(previous_n_fluctuations[-lookback:])  > threshold
+            thermalize_magnetisation_over_time = np.zeros((block_size))
+            for t in range(0, block_size):
+                self.system.generate_proposed_state()
+                self.system.validate_or_revert_proposition()
+                total_spin = np.sum(self.system.spingrid)
+                thermalize_magnetisation_over_time[t] = total_spin
+
+            fluctuation  = np.std(thermalize_magnetisation_over_time)
+            previous_n_fluctuations.append(fluctuation)
+
+
+            i +=1
+
+        return 0
+
     def run_multiple_temperatures(self, temps, n_reps=1):
         magnetisation_multiple_temps = {}
         i = 0
@@ -171,7 +204,8 @@ class Simulation:
             run_name = str(temp)
             self.system.temperature = temp
             self.system.initialize()
-            self.run_simulation()
+            self.thermalize()
+            self.run_simulation(temp)
             magnetisation_multiple_temps[run_name] = (
                 self.results.magnetisation_over_time
             )
@@ -249,17 +283,14 @@ class Results(object):
     def get_correlation_time(self):
         """Calculates the correlation times according to tau = chi(t)/chi(0)"""
         self.new_correlation_functions()
-        print(self.correlation_functions)
         correlation_times = {}
         for name, run in self.correlation_functions.items():
             # Apply first mask on values chi(t) < 0 
-            print(run)
             stop_index = np.where(run < 0)[0][0]
-            print(stop_index)
             test = np.sum(run[:stop_index]/ run[0])
             correlation_times[name] = np.sum(run[:stop_index]/ run[0])
         print(correlation_times)
-        np.save("data/correlation_times-10.npy", correlation_times)
+        np.save("data/correlation_times-12.npy", correlation_times)
         return correlation_times
 
     def stat_indep_std(self, corr_time, x):
@@ -272,7 +303,7 @@ def main():
     temperature = 1.5
     n_timesteps =  250000*4 #int(250000*4) 
     temps = np.linspace(1.0, 4.0, 16)
-    print(temps)
+    corr_times = np.loadtxt("data/correlation_times.txt")
     lattice = Lattice(n_spins, temperature)
     lattice_before = np.copy(lattice.spingrid)
     simulation = Simulation(lattice, n_timesteps)

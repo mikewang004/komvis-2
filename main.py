@@ -261,7 +261,10 @@ class Results(object):
         print(correlation_times)
         np.save("data/correlation_times-10.npy", correlation_times)
         return correlation_times
-            
+
+    def stat_indep_std(self, corr_time, x):
+        np.sqrt(2 * corr_time/t_max * np.mean(x**2) - np.mean(x)**2) 
+
 
 
 def main():

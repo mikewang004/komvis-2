@@ -5,7 +5,7 @@ from scipy.linalg import hankel
 from tqdm import tqdm
 
 
-max_i = 9
+max_i = 10
 temps = np.linspace(1.0, 4.0, 16)
 correlation_times = np.zeros([max_i, 16])
 for i in range(1, max_i+1):
